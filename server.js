@@ -119,23 +119,98 @@ app.post("/api/webhooks/:provider", (req, res) => {
 
 // Each successful generation must atomically deduct exactly 1 credit before calling the model.
 // Half credits are supported for affiliate rewards, but a generation requires >= 1 full credit.
+
 app.post("/api/generations", async (req, res) => {
-  const { userId, lyrics, idea, mode, style, mood, voiceMode } = req.body || {};
-  if (!userId || !["lyrics", "idea"].includes(mode) || !["ai", "own"].includes(voiceMode)) {
-    return res.status(400).json({ error: "Invalid generation request" });
+  try {
+    const { userId, lyrics, idea, mode, style, mood, voiceMode } =
+      req.body || {};
+
+    if (!userId || !["lyrics", "idea"].includes(mode)) {
+      return res.status(400).json({
+        error: "Identifiant utilisateur ou mode invalide."
+      });
+    }
+
+    if (mode === "lyrics" && !String(lyrics || "").trim()) {
+      return res.status(400).json({
+        error: "Écris les paroles de ta chanson."
+      });
+    }
+
+    if (mode === "idea" && !String(idea || "").trim()) {
+      return res.status(400).json({
+        error: "Décris ton idée de chanson."
+      });
+    }
+
+    if (mode === "lyrics" && String(lyrics).length > 5000) {
+      return res.status(400).json({
+        error: "Les paroles ne doivent pas dépasser 5000 caractères."
+      });
+    }
+
+    if (voiceMode === "own") {
+      return res.status(400).json({
+        error: "La voix personnelle n'est pas encore prise en charge."
+      });
+    }
+
+    if (!process.env.FAL_KEY) {
+      return res.status(503).json({
+        error: "La clé fal.ai n'est pas configurée sur le serveur."
+      });
+    }
+
+    const musicDetails = [
+      style ? `Style musical : ${style}` : "",
+      mood ? `Ambiance : ${mood}` : ""
+    ].filter(Boolean).join(". ");
+
+    const input = {
+      model: "mureka-9",
+      enable_safety_checker: true
+    };
+
+    if (mode === "lyrics") {
+      input.lyrics = String(lyrics).trim();
+      input.prompt = musicDetails ||
+        "Create a polished song with suitable instrumentation and vocals.";
+    } else {
+      input.prompt = [
+        String(idea).trim(),
+        musicDetails,
+        "Create a complete original song with vocals."
+      ].filter(Boolean).join(". ");
+    }
+
+    const result = await fal.subscribe(
+      "mureka/api/generate/song",
+      { input }
+    );
+
+    const song = result.data;
+    const audioUrl = song?.audio?.url;
+
+    if (!audioUrl) {
+      console.error("fal.ai returned no audio URL");
+      return res.status(502).json({
+        error: "Le fournisseur n'a pas renvoyé de fichier audio."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      songId: song.song_id || result.requestId,
+      audioUrl,
+      duration: song.duration || null,
+      message: "Ta chanson a été générée."
+    });
+  } catch (error) {
+    console.error("Music generation failed:", error.message);
+    return res.status(502).json({
+      error: "La génération a échoué. Réessaie ou vérifie les logs Render."
+    });
   }
-  if (mode === "lyrics" && !String(lyrics || "").trim()) return res.status(400).json({ error: "Lyrics required" });
-  if (mode === "idea" && !String(idea || "").trim()) return res.status(400).json({ error: "Idea required" });
-
-  const user = getUser(userId);
-  if (user.credits < 1) return res.status(402).json({ error: "Not enough credits", credits: user.credits });
-  if (!process.env.FAL_KEY) return res.status(503).json({ error: "Music model is not configured yet; no credit was consumed." });
-
-  // TODO: Validate model-specific payload and consent for uploaded/voice-cloned audio.
-  // TODO: Use a DB transaction/ledger to reserve 1 credit idempotently before calling fal.ai.
-  // TODO: Call fal.ai from the server only. Never expose FAL_KEY to browser code.
-  // TODO: On provider failure, refund the reserved credit; on success, store audio URL and provider job ID.
-  res.status(501).json({ error: "fal.ai model adapter is not configured; no credit was consumed." });
 });
 
 app.get("/api/config", (_req, res) => {
