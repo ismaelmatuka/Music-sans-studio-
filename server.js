@@ -8,8 +8,16 @@ import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
-
+import pg from "pg";
 const app = express();
+const { Pool } = pg;
+
+const pool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : null;
 const PORT = Number(process.env.PORT || 3000);
 const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
 
@@ -42,7 +50,29 @@ function safeEqual(a, b) {
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, service: "music-sans-studio", mode: "starter" }));
+app.get("/api/health", async (_req, res) => {
+try {
+if (!pool) {
+return res.status(503).json({
+ok: false,
+database: "DATABASE_URL missing"
+});
+}
+await pool.query("SELECT NOW()");
+
+res.json({
+  ok: true,
+  service: "music-sans-studio",
+  database: "connected"
+});
+} catch (error) {
+console.error("Database health check failed:", error.message);
+res.status(503).json({
+ok: false,
+database: "disconnected"
+});
+}
+});
 
 // A signed-in user should be identified by a verified auth session, never by a client-supplied ID.
 // This header is only a local-development placeholder; replace with verified Firebase/Supabase/Auth.js session.
