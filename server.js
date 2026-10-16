@@ -251,6 +251,30 @@ await pool.query(`     CREATE TABLE IF NOT EXISTS users (
     )
   `);
 
+await pool.query(`
+  ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS email TEXT
+`);
+
+await pool.query(`
+  ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS password_hash TEXT
+`);
+
+await pool.query(`
+  CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
+  ON users (LOWER(email))
+  WHERE email IS NOT NULL
+`);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS user_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
 console.log("PostgreSQL users table is ready");
 }
 
