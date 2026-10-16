@@ -158,9 +158,7 @@ console.log("PostgreSQL users table is ready");
 initDb()
 .then(() => {
 app.listen(PORT, () => {
-console.log(
-`Music Sans Studio running on port ${PORT}`
-);
+console.log(Music Sans Studio running on port ${PORT});
 });
 })
 .catch((error) => {
