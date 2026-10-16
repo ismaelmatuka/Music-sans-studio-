@@ -152,16 +152,27 @@ async function initDb() {
 if (!pool) {
 throw new Error("DATABASE_URL is not configured");
 }
-await pool.query( CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, credits NUMERIC(10,2) NOT NULL DEFAULT 0, referral_code TEXT UNIQUE NOT NULL, referred_by TEXT REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW() ) );
+
+await pool.query(`     CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      credits NUMERIC(10,2) NOT NULL DEFAULT 0,
+      referral_code TEXT UNIQUE NOT NULL,
+      referred_by TEXT REFERENCES users(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
 console.log("PostgreSQL users table is ready");
 }
+
 initDb()
 .then(() => {
 app.listen(PORT, () => {
-console.log(Music Sans Studio running on port ${PORT});
+console.log(`Music Sans Studio running on port ${PORT}`);
 });
 })
 .catch((error) => {
 console.error("Database initialization failed:", error.message);
 process.exit(1);
 });
+
