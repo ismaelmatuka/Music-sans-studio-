@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 import pg from "pg";
 const app = express();
 const { Pool } = pg;
+import { fal } from "@fal-ai/client";
 
 const pool = process.env.DATABASE_URL
   ? new Pool({
