@@ -13,6 +13,8 @@ import crypto from "node:crypto";
 import pg from "pg";
 const app = express();
 const { Pool } = pg;
+
+app.set("trust proxy", 1);
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
