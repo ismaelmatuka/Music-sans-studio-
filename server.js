@@ -6,6 +6,8 @@
  * This starter intentionally does NOT pretend payments or music generation are live.
  * Configure a payment provider and fal.ai adapter before production.
  */
+
+import { promisify } from "node:util";
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -13,6 +15,7 @@ import crypto from "node:crypto";
 import pg from "pg";
 const app = express();
 const { Pool } = pg;
+const scryptAsync = promisify(crypto.scrypt);
 
 app.set("trust proxy", 1);
 import path from "node:path";
@@ -63,6 +66,165 @@ function safeEqual(a, b) {
   const bb = Buffer.from(String(b || ""));
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 }
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const key = await scryptAsync(password, salt, 64);
+  return `${salt}:${key.toString("hex")}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  if (!storedHash || !storedHash.includes(":")) return false;
+
+  const [salt, keyHex] = storedHash.split(":");
+  const expected = Buffer.from(keyHex, "hex");
+  const actual = await scryptAsync(password, salt, 64);
+
+  return expected.length === actual.length &&
+    crypto.timingSafeEqual(expected, actual);
+}
+
+function readSessionCookie(req) {
+  const cookies = req.headers.cookie || "";
+  const entry = cookies.split(";").map(v => v.trim())
+    .find(v => v.startsWith("mss_session="));
+
+  return entry ? entry.slice("mss_session=".length) : null;
+}
+
+function setSessionCookie(res, token) {
+  res.cookie("mss_session", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000
+  });
+}
+
+async function getAuthenticatedUser(req) {
+  const token = readSessionCookie(req);
+  if (!token || !pool) return null;
+
+  const tokenHash = crypto.createHash("sha256")
+    .update(token).digest("hex");
+
+  const result = await pool.query(
+    `SELECT u.id, u.email, u.credits, u.referral_code
+     FROM user_sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1 AND s.expires_at > NOW()`,
+    [tokenHash]
+  );
+
+  return result.rows[0] || null;
+}
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Adresse email invalide." });
+    }
+
+    if (password.length < 12 || password.length > 128) {
+      return res.status(400).json({
+        error: "Le mot de passe doit contenir entre 12 et 128 caractères."
+      });
+    }
+
+    const id = crypto.randomUUID();
+    const referralCode = crypto.randomUUID().slice(0, 8);
+    const passwordHash = await hashPassword(password);
+
+    await pool.query(
+      `INSERT INTO users
+       (id, email, password_hash, credits, referral_code)
+       VALUES ($1, $2, $3, 0, $4)`,
+      [id, email, passwordHash, referralCode]
+    );
+
+    return res.status(201).json({
+      ok: true,
+      message: "Compte créé. Tu peux maintenant te connecter."
+    });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error: "Cette adresse email est déjà utilisée."
+      });
+    }
+
+    console.error("Registration failed:", error.message);
+    return res.status(500).json({ error: "Impossible de créer le compte." });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
+
+    const result = await pool.query(
+      `SELECT id, email, password_hash
+       FROM users WHERE LOWER(email) = $1`,
+      [email]
+    );
+
+    const user = result.rows[0];
+
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
+      return res.status(401).json({
+        error: "Email ou mot de passe incorrect."
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256")
+      .update(token).digest("hex");
+
+    await pool.query(
+      `INSERT INTO user_sessions (token_hash, user_id, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
+      [tokenHash, user.id]
+    );
+
+    setSessionCookie(res, token);
+    return res.json({ ok: true, message: "Connexion réussie." });
+  } catch (error) {
+    console.error("Login failed:", error.message);
+    return res.status(500).json({ error: "Connexion impossible." });
+  }
+});
+
+app.post("/api/auth/logout", async (req, res) => {
+  try {
+    const token = readSessionCookie(req);
+
+    if (token) {
+      const tokenHash = crypto.createHash("sha256")
+        .update(token).digest("hex");
+
+      await pool.query(
+        "DELETE FROM user_sessions WHERE token_hash = $1",
+        [tokenHash]
+      );
+    }
+
+    res.clearCookie("mss_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/"
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    console.error("Logout failed:", error.message);
+    return res.status(500).json({ error: "Déconnexion impossible." });
+  }
+});
 
 app.get("/api/health", async (_req, res) => {
 try {
@@ -90,7 +252,26 @@ database: "disconnected"
 
 // A signed-in user should be identified by a verified auth session, never by a client-supplied ID.
 // This header is only a local-development placeholder; replace with verified Firebase/Supabase/Auth.js session.
-app.get("/api/me", (req, res) => {
+
+app.get("/api/me", async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+
+    if (!user) {
+      return res.status(401).json({ error: "Non connecté." });
+    }
+
+    return res.json({
+      id: user.id,
+      email: user.email,
+      credits: Number(user.credits),
+      referralCode: user.referral_code
+    });
+  } catch (error) {
+    console.error("Session check failed:", error.message);
+    return res.status(500).json({ error: "Erreur de session." });
+  }
+});
   const user = getUser(req.header("x-demo-user"));
   res.json({ id: user.id, credits: user.credits, referralCode: user.referralCode });
 });
