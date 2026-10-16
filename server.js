@@ -1,14 +1,5 @@
 
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-app.use(express.static("public"));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
 /**
  * Music Sans Studio — backend starter (Node.js 20+)
  *
@@ -22,7 +13,16 @@ import crypto from "node:crypto";
 import pg from "pg";
 const app = express();
 const { Pool } = pg;
-import { fal } from "@fal-ai/client";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+app.use(express.static("public"));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 const pool = process.env.DATABASE_URL
   ? new Pool({
