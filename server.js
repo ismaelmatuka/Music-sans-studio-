@@ -272,9 +272,6 @@ app.get("/api/me", async (req, res) => {
     return res.status(500).json({ error: "Erreur de session." });
   }
 });
-  const user = getUser(req.header("x-demo-user"));
-  res.json({ id: user.id, credits: user.credits, referralCode: user.referralCode });
-});
 
 app.post("/api/referrals/attach", (req, res) => {
   const { userId, referralCode } = req.body || {};
