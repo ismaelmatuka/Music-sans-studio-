@@ -15,12 +15,89 @@
 <div class="pricecard featured"><div class="eyebrow">Populaire</div><h3 style="margin-top:10px">Artiste</h3><div class="num">15 $</div><div class="desc">Pour explorer différents styles</div><div class="per">7 chansons · 2,14 $ / chanson</div><button class="btn" onclick="choosePack(7,15)">Choisir ce pack</button></div>
 <div class="pricecard"><h3>Studio Pro</h3><div class="num">25 $</div><div class="desc">Le meilleur rapport quantité/prix</div><div class="per">14 chansons · 1,79 $ / chanson</div><button class="btn secondary" onclick="choosePack(14,25)">Choisir ce pack</button></div>
 </div><div class="notice">Prototype de démonstration : les tarifs sont affichés, mais aucun paiement réel n’est traité et aucun crédit n’est acheté depuis cette page. Une chanson générée consomme 1 crédit.</div></div></section>
-<section class="section" id="creer"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Espace de création</div><h2>Compose ta prochaine chanson</h2><p>Commence avec tes propres paroles ou décris simplement ce que tu imagines.</p></div><div class="composer"><div class="panel"><h3>1. Ton point de départ</h3><p class="sub">Comment veux-tu créer ta chanson ?</p><div class="choices"><button class="choice active" id="modeLyrics" onclick="setMode('lyrics')"><b>✍️ Mes paroles</b><small>J’écris mon propre texte</small></button><button class="choice" id="modeIdea" onclick="setMode('idea')"><b>✨ Mon idée</b><small>L’IA propose les paroles</small></button></div><div class="field" id="lyricsField"><label for="lyrics">Tes paroles</label><textarea id="lyrics" placeholder="Écris ici tes couplets, ton refrain ou ton texte…"></textarea></div><div class="field" id="ideaField" style="display:none"><label for="idea">Décris ton idée</label><textarea id="idea" placeholder="Ex. une chanson gospel pleine d’espoir, avec un refrain puissant…"></textarea></div><div class="field"><label for="style">Style musical</label><select id="style"><option>Afrobeat</option><option>Gospel</option><option>Pop</option><option>Rap / Hip-hop</option><option>R&B / Soul</option><option>Rock</option><option>Lo-fi</option><option>Acoustique</option><option>Électronique</option></select></div><div class="field"><label for="mood">Ambiance</label><select id="mood"><option>Énergique et inspirante</option><option>Émouvante</option><option>Festive</option><option>Calme et douce</option><option>Sombre et intense</option><option>Spirituelle</option></select></div><h3 style="margin-top:24px">2. Choisis la voix</h3><p class="sub">Pour une vraie génération, la connexion au moteur IA sera nécessaire.</p><div class="choices"><button class="choice active" id="voiceAI" onclick="setVoice('ai')"><b>🎙️ Voix IA</b><small>Une voix synthétique</small></button><button class="choice" id="voiceMine" onclick="setVoice('mine')"><b>🎧 Ma voix</b><small>Importer un échantillon vocal</small></button></div><div class="field" id="voiceUpload" style="display:none"><label for="voiceFile">Enregistrer ou importer ta voix</label><input id="voiceFile" type="file" accept="audio/*"><div class="hint">N’utilise que ta propre voix ou une voix pour laquelle tu as une autorisation explicite.</div></div><div class="field"><label for="packSelect">Pack souhaité</label><select id="packSelect"><option value="2|6">2 chansons — 6 $</option><option value="4|10">4 chansons — 10 $</option><option value="7|15">7 chansons — 15 $</option><option value="14|25">14 chansons — 25 $</option></select></div><button class="btn" style="width:100%" onclick="generateDemo()">♫ Préparer ma chanson</button><div class="status" id="generationStatus" role="status"></div><p class="hint">Cette démo vérifie tes choix et simule la préparation. Elle ne génère pas encore de fichier audio réel.</p></div>
+<section class="section" id="creer"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Espace de création</div><h2>Compose ta prochaine chanson</h2><p>Commence avec tes propres paroles ou décris simplement ce que tu imagines.</p></div><div class="composer"><div class="panel"><h3>1. Ton point de départ</h3><p class="sub">Comment veux-tu créer ta chanson ?</p><div class="choices"><button class="choice active" id="modeLyrics" onclick="setMode('lyrics')"><b>✍️ Mes paroles</b><small>J’écris mon propre texte</small></button><button class="choice" id="modeIdea" onclick="setMode('idea')"><b>✨ Mon idée</b><small>L’IA propose les paroles</small></button></div><div class="field" id="lyricsField"><label for="lyrics">Tes paroles</label><textarea id="lyrics" placeholder="Écris ici tes couplets, ton refrain ou ton texte…"></textarea></div><div class="field" id="ideaField" style="display:none"><label for="idea">Décris ton idée</label><textarea id="idea" placeholder="Ex. une chanson gospel pleine d’espoir, avec un refrain puissant…"></textarea></div><div class="field"><label for="style">Style musical</label><select id="style"><option>Afrobeat</option><option>Gospel</option><option>Pop</option><option>Rap / Hip-hop</option><option>R&B / Soul</option><option>Rock</option><option>Lo-fi</option><option>Acoustique</option><option>Électronique</option></select></div><div class="field"><label for="mood">Ambiance</label><select id="mood"><option>Énergique et inspirante</option><option>Émouvante</option><option>Festive</option><option>Calme et douce</option><option>Sombre et intense</option><option>Spirituelle</option></select></div><h3 style="margin-top:24px">2. Choisis la voix</h3><p class="sub">Pour une vraie génération, la connexion au moteur IA sera nécessaire.</p><div class="choices"><button class="choice active" id="voiceAI" onclick="setVoice('ai')"><b>🎙️ Voix IA</b><small>Une voix synthétique</small></button><button class="choice" id="voiceMine" onclick="setVoice('mine')"><b>🎧 Ma voix</b><small>Importer un échantillon vocal</small></button></div><div class="field" id="voiceUpload" style="display:none"><label for="voiceFile">Enregistrer ou importer ta voix</label><input id="voiceFile" type="file" accept="audio/*"><div class="hint">N’utilise que ta propre voix ou une voix pour laquelle tu as une autorisation explicite.</div></div><div class="field"><label for="packSelect">Pack souhaité</label><select id="packSelect"><option value="2|6">2 chansons — 6 $</option><option value="4|10">4 chansons — 10 $</option><option value="7|15">7 chansons — 15 $</option><option value="14|25">14 chansons — 25 $</option></select></div><button class="btn" style="width:100%" onclick="generateDemo()">♫ Préparer ma chanson</button><div class="status" id="generationStatus" role="status"></div><div id="audioResult" style="display:none;margin-top:18px">
+  <h3>🎵 Ta chanson est prête</h3>
+  <audio id="songPlayer" controls style="width:100%"></audio>
+  <p><a id="songDownload" target="_blank" rel="noopener">Ouvrir ou télécharger la chanson</a></p>
+</div><p class="hint">Cette démo vérifie tes choix et simule la préparation. Elle ne génère pas encore de fichier audio réel.</p></div>
 <div class="panel"><h3>Ton studio, en un clin d’œil</h3><p class="sub">Une expérience simple, du texte à la chanson.</p><div class="step" style="margin-bottom:12px"><div class="stepnum">01</div><h3>Écris ou décris</h3><p>Entre tes paroles ou explique le thème, l’émotion et le style souhaités.</p></div><div class="step" style="margin-bottom:12px"><div class="stepnum">02</div><h3>Personnalise la voix</h3><p>Choisis une voix IA ou, après consentement et vérification, une voix que tu es autorisé à utiliser.</p></div><div class="step"><div class="stepnum">03</div><h3>Génère et écoute</h3><p>Le moteur musical produit la chanson. Télécharge-la et retrouve tes créations dans ton compte.</p></div><div class="notice">Moteur envisagé : fal.ai avec un modèle musical compatible. Le budget technique cible est de 15 % du coût des générations, à surveiller côté serveur. L’API réelle reste à configurer.</div></div></div></div></section>
 <section class="section" id="comment"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Simple comme bonjour</div><h2>De l’idée au morceau final</h2><p>Le parcours prévu pour les membres de Music Sans Studio.</p></div><div class="steps"><div class="step"><div class="stepnum">1</div><h3>Crée ton compte</h3><p>Inscription par e-mail et mot de passe, ou connexion Google / Apple après configuration sécurisée.</p></div><div class="step"><div class="stepnum">2</div><h3>Achète des crédits</h3><p>Carte de crédit/débit, PayPal, Google Pay, Apple Pay et cryptomonnaies via des prestataires compatibles.</p></div><div class="step"><div class="stepnum">3</div><h3>Crée et partage</h3><p>Les crédits sont crédités automatiquement uniquement après confirmation serveur du paiement.</p></div></div></div></section>
 <section class="section"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Grandir ensemble</div><h2>Programme d’affiliation</h2><p>Invite des créateurs et gagne une récompense quand leur achat est confirmé.</p></div><div class="grid"><div class="pricecard"><h3>Pack 6 $</h3><div class="num">0,5 chanson</div><div class="desc">0,5 crédit offert au parrain après achat confirmé</div></div><div class="pricecard"><h3>Pack 10 $</h3><div class="num">1 chanson</div><div class="desc">Récompense en crédits après achat confirmé</div></div><div class="pricecard"><h3>Pack 15 $</h3><div class="num">2 chansons</div><div class="desc">Récompense en crédits après achat confirmé</div></div><div class="pricecard"><h3>Pack 25 $</h3><div class="num">3 chansons</div><div class="desc">Récompense en crédits après achat confirmé</div></div></div><div class="notice">Règle choisie : le pack à 6 $ déclenche une récompense de 0,5 crédit pour le parrain. Les récompenses sont attribuées une seule fois après confirmation serveur de l’achat. Chaque chanson générée consomme 1 crédit ; les soldes peuvent donc inclure des demi-crédits.</div></div></section>
 </main><footer class="wrap footer"><div>© 2026 Music Sans Studio · Prototype</div><div><a href="#tarifs">Tarifs</a> · <a href="#creer">Studio</a> · <a href="#">Confidentialité (à rédiger)</a></div><div>Musique originale, création responsable.</div></footer>
 <div class="modal" id="loginModal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><button class="close" onclick="closeModal()">×</button><h2>Bienvenue dans ton studio</h2><p class="muted">La connexion sera activée dans la version connectée.</p><label for="email">Adresse e-mail</label><input id="email" type="email" placeholder="toi@exemple.com"><label for="password">Mot de passe</label><input id="password" type="password" placeholder="Au moins 8 caractères"><button class="btn" onclick="loginDemo()">Continuer</button><div class="divider"></div><button class="btn secondary" onclick="loginDemo()">Continuer avec Google</button><button class="btn secondary" style="margin-top:8px" onclick="loginDemo()">Continuer avec Apple</button><p class="hint">Aucun compte n’est créé par cette maquette.</p></div></div>
 <script>
-const waveHeights=[12,22,30,17,35,24,12,28,39,18,25,34,14,22,31,17,40,25,13,29,20,34,15,24,38,18,27,13,33,21,15,29,19,36,24,12,31,18,27,14,22,35,16,28,20,11];document.querySelector('.wave').innerHTML=waveHeights.map(h=>`<i style="--h:${h}px"></i>`).join('');let mode='lyrics',voice='ai';function setMode(m){mode=m;document.getElementById('modeLyrics').classList.toggle('active',m==='lyrics');document.getElementById('modeIdea').classList.toggle('active',m==='idea');document.getElementById('lyricsField').style.display=m==='lyrics'?'block':'none';document.getElementById('ideaField').style.display=m==='idea'?'block':'none'}function setVoice(v){voice=v;document.getElementById('voiceAI').classList.toggle('active',v==='ai');document.getElementById('voiceMine').classList.toggle('active',v==='mine');document.getElementById('voiceUpload').style.display=v==='mine'?'block':'none'}function choosePack(n,p){document.getElementById('packSelect').value=`${n}|${p}`;document.querySelector('#creer').scrollIntoView({behavior:'smooth'});document.getElementById('generationStatus').classList.remove('show')}function generateDemo(){const status=document.getElementById('generationStatus');const lyrics=document.getElementById('lyrics').value.trim();const idea=document.getElementById('idea').value.trim();if(mode==='lyrics'&&!lyrics){status.textContent='Ajoute tes paroles avant de continuer.';status.classList.add('show');return}if(mode==='idea'&&!idea){status.textContent='Décris ton idée musicale avant de continuer.';status.classList.add('show');return}if(voice==='mine'&&!document.getElementById('voiceFile').files.length){status.textContent='Choisis un fichier audio pour continuer avec ta voix.';status.classList.add('show');return}const [n,p]=document.getElementById('packSelect').value.split('|');status.textContent=`Configuration prête : ${n} chanson(s), style ${document.getElementById('style').value}, ambiance « ${document.getElementById('mood').value} », ${voice==='ai'?'voix IA':'échantillon vocal sélectionné'}. Le pack coûte ${p} $. Pour générer l’audio et acheter des crédits, la connexion au serveur, au moteur IA et au paiement doit être configurée.`;status.classList.add('show')}function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}function loginDemo(){alert('La connexion n’est pas encore activée : cette maquette ne collecte ni n’enregistre tes identifiants.');}
+const waveHeights=[12,22,30,17,35,24,12,28,39,18,25,34,14,22,31,17,40,25,13,29,20,34,15,24,38,18,27,13,33,21,15,29,19,36,24,12,31,18,27,14,22,35,16,28,20,11];document.querySelector('.wave').innerHTML=waveHeights.map(h=>`<i style="--h:${h}px"></i>`).join('');let mode='lyrics',voice='ai';function setMode(m){mode=m;document.getElementById('modeLyrics').classList.toggle('active',m==='lyrics');document.getElementById('modeIdea').classList.toggle('active',m==='idea');document.getElementById('lyricsField').style.display=m==='lyrics'?'block':'none';document.getElementById('ideaField').style.display=m==='idea'?'block':'none'}function setVoice(v){voice=v;document.getElementById('voiceAI').classList.toggle('active',v==='ai');document.getElementById('voiceMine').classList.toggle('active',v==='mine');document.getElementById('voiceUpload').style.display=v==='mine'?'block':'none'}function choosePack(n,p){document.getElementById('packSelect').value=`${n}|${p}`;document.querySelector('#creer').scrollIntoView({behavior:'smooth'});document.getElementById('generationStatus').classList.remove('show')}
+async function generateDemo() {
+  const status = document.getElementById("generationStatus");
+  const result = document.getElementById("audioResult");
+  const player = document.getElementById("songPlayer");
+  const download = document.getElementById("songDownload");
+
+  const lyrics = document.getElementById("lyrics").value.trim();
+  const idea = document.getElementById("idea").value.trim();
+
+  if (mode === "lyrics" && !lyrics) {
+    status.textContent = "Ajoute tes paroles avant de continuer.";
+    status.classList.add("show");
+    return;
+  }
+
+  if (mode === "idea" && !idea) {
+    status.textContent = "Décris ton idée musicale avant de continuer.";
+    status.classList.add("show");
+    return;
+  }
+
+  if (voice !== "ai") {
+    status.textContent =
+      "L'import d'une voix personnelle n'est pas encore pris en charge.";
+    status.classList.add("show");
+    return;
+  }
+
+  status.textContent = "Envoi au studio musical IA… La génération peut prendre un moment.";
+  status.classList.add("show");
+  result.style.display = "none";
+
+  const button = document.querySelector(
+    '#creer button[onclick="generateDemo()"]'
+  );
+  if (button) button.disabled = true;
+
+  try {
+    const response = await fetch("/api/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: "demo-user",
+        mode,
+        lyrics,
+        idea,
+        style: document.getElementById("style").value,
+        mood: document.getElementById("mood").value,
+        voiceMode: "ai"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "La génération a échoué.");
+    }
+
+    if (!data.audioUrl) {
+      throw new Error("Le serveur n'a pas renvoyé de fichier audio.");
+    }
+
+    player.src = data.audioUrl;
+    download.href = data.audioUrl;
+    download.download = "music-sans-studio.mp3";
+    result.style.display = "block";
+    status.textContent = "Chanson générée ! Tu peux l'écouter ci-dessous.";
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}function loginDemo(){alert('La connexion n’est pas encore activée : cette maquette ne collecte ni n’enregistre tes identifiants.');}
 </script></body></html>
