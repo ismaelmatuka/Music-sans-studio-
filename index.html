@@ -24,7 +24,9 @@
 <section class="section" id="comment"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Simple comme bonjour</div><h2>De l’idée au morceau final</h2><p>Le parcours prévu pour les membres de Music Sans Studio.</p></div><div class="steps"><div class="step"><div class="stepnum">1</div><h3>Crée ton compte</h3><p>Inscription par e-mail et mot de passe, ou connexion Google / Apple après configuration sécurisée.</p></div><div class="step"><div class="stepnum">2</div><h3>Achète des crédits</h3><p>Carte de crédit/débit, PayPal, Google Pay, Apple Pay et cryptomonnaies via des prestataires compatibles.</p></div><div class="step"><div class="stepnum">3</div><h3>Crée et partage</h3><p>Les crédits sont crédités automatiquement uniquement après confirmation serveur du paiement.</p></div></div></div></section>
 <section class="section"><div class="wrap"><div class="sectionhead"><div class="eyebrow">Grandir ensemble</div><h2>Programme d’affiliation</h2><p>Invite des créateurs et gagne une récompense quand leur achat est confirmé.</p></div><div class="grid"><div class="pricecard"><h3>Pack 6 $</h3><div class="num">0,5 chanson</div><div class="desc">0,5 crédit offert au parrain après achat confirmé</div></div><div class="pricecard"><h3>Pack 10 $</h3><div class="num">1 chanson</div><div class="desc">Récompense en crédits après achat confirmé</div></div><div class="pricecard"><h3>Pack 15 $</h3><div class="num">2 chansons</div><div class="desc">Récompense en crédits après achat confirmé</div></div><div class="pricecard"><h3>Pack 25 $</h3><div class="num">3 chansons</div><div class="desc">Récompense en crédits après achat confirmé</div></div></div><div class="notice">Règle choisie : le pack à 6 $ déclenche une récompense de 0,5 crédit pour le parrain. Les récompenses sont attribuées une seule fois après confirmation serveur de l’achat. Chaque chanson générée consomme 1 crédit ; les soldes peuvent donc inclure des demi-crédits.</div></div></section>
 </main><footer class="wrap footer"><div>© 2026 Music Sans Studio · Prototype</div><div><a href="#tarifs">Tarifs</a> · <a href="#creer">Studio</a> · <a href="#">Confidentialité (à rédiger)</a></div><div>Musique originale, création responsable.</div></footer>
-<div class="modal" id="loginModal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><button class="close" onclick="closeModal()">×</button><h2>Bienvenue dans ton studio</h2><p class="muted">Connecte-toi ou crée ton compte Music Sans Studio.</p><label for="email">Adresse e-mail</label><input id="email" type="email" placeholder="toi@exemple.com"><label for="password">Mot de passe</label><input id="password" type="password" placeholder="Au moins 8 caractères"><button class="btn" onclick="loginDemo()">Continuer</button><div class="divider"></div><button class="btn secondary" onclick="loginDemo()">Continuer avec Google</button><button class="btn secondary" style="margin-top:8px" onclick="loginDemo()">Continuer avec Apple</button><p class="hint">Aucun compte n’est créé par cette maquette.</p></div></div>
+<div class="modal" id="loginModal" onclick="if(event.target===this)closeModal()"><div class="modalbox"><button class="close" onclick="closeModal()">×</button><h2>Bienvenue dans ton studio</h2><p class="muted">Connecte-toi ou crée ton compte Music Sans Studio.</p><label for="email">Adresse e-mail</label><input id="email" type="email" placeholder="toi@exemple.com"><label for="password">Mot de passe</label><input id="password" type="password" placeholder="Au moins 8 caractères"><button class="btn" onclick="loginDemo()">Se connecter</button>
+<button class="btn secondary" onclick="registerDemo()" style="margin-top:8px">Créer un compte</button>
+<p id="authStatus" role="status" aria-live="polite"></p><div class="divider"></div><button class="btn secondary" onclick="loginDemo()">Continuer avec Google</button><button class="btn secondary" style="margin-top:8px" onclick="loginDemo()">Continuer avec Apple</button><p class="hint">Aucun compte n’est créé par cette maquette.</p></div></div>
 <script>
 const waveHeights=[12,22,30,17,35,24,12,28,39,18,25,34,14,22,31,17,40,25,13,29,20,34,15,24,38,18,27,13,33,21,15,29,19,36,24,12,31,18,27,14,22,35,16,28,20,11];document.querySelector('.wave').innerHTML=waveHeights.map(h=>`<i style="--h:${h}px"></i>`).join('');let mode='lyrics',voice='ai';function setMode(m){mode=m;document.getElementById('modeLyrics').classList.toggle('active',m==='lyrics');document.getElementById('modeIdea').classList.toggle('active',m==='idea');document.getElementById('lyricsField').style.display=m==='lyrics'?'block':'none';document.getElementById('ideaField').style.display=m==='idea'?'block':'none'}function setVoice(v){voice=v;document.getElementById('voiceAI').classList.toggle('active',v==='ai');document.getElementById('voiceMine').classList.toggle('active',v==='mine');document.getElementById('voiceUpload').style.display=v==='mine'?'block':'none'}function choosePack(n,p){document.getElementById('packSelect').value=`${n}|${p}`;document.querySelector('#creer').scrollIntoView({behavior:'smooth'});document.getElementById('generationStatus').classList.remove('show')}
 async function generateDemo() {
@@ -99,5 +101,58 @@ async function generateDemo() {
   } finally {
     if (button) button.disabled = false;
   }
-}function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}function loginDemo(){alert('La connexion n’est pas encore activée : cette maquette ne collecte ni n’enregistre tes identifiants.');}
+}function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}
+async function loginDemo() {
+  await submitAuth("/api/auth/login");
+}
+
+async function registerDemo() {
+  await submitAuth("/api/auth/register");
+}
+
+async function submitAuth(endpoint) {
+  const status = document.getElementById("authStatus");
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  status.textContent = "Patiente, vérification en cours…";
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Une erreur est survenue.");
+    }
+
+    if (endpoint.endsWith("/register")) {
+      status.textContent =
+        "Compte créé ! Tu peux maintenant te connecter.";
+      return;
+    }
+
+    status.textContent = "Connexion réussie !";
+    closeModal();
+
+    const meResponse = await fetch("/api/me", {
+      credentials: "same-origin"
+    });
+
+    if (meResponse.ok) {
+      const user = await meResponse.json();
+      alert(
+        "Connecté : " + user.email +
+        "\nCrédits disponibles : " + user.credits
+      );
+    }
+  } catch (error) {
+    status.textContent = error.message;
+  }
+}
 </script></body></html>
