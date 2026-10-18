@@ -139,14 +139,15 @@ async function generateDemo() {
     const response = await fetch("/api/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: "demo-user",
-        mode,
-        lyrics,
-        idea,
-        style: document.getElementById("style").value,
-        mood: document.getElementById("mood").value,
-        voiceMode: "ai"
+      credentials: "same-origin",
+body: JSON.stringify({
+  mode,
+  lyrics,
+  idea,
+  style: document.getElementById("style").value,
+  mood: document.getElementById("mood").value,
+  voiceMode: "ai"
+})
       })
     });
 
