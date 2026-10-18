@@ -31,7 +31,73 @@
 <button class="btn secondary" onclick="registerDemo()" style="margin-top:8px">Créer un compte</button>
 <p id="authStatus" role="status" aria-live="polite"></p><div class="divider"></div><p class="hint">Inscription par e-mail et mot de passe.</p></div></div>
 <script>
-const waveHeights=[12,22,30,17,35,24,12,28,39,18,25,34,14,22,31,17,40,25,13,29,20,34,15,24,38,18,27,13,33,21,15,29,19,36,24,12,31,18,27,14,22,35,16,28,20,11];document.querySelector('.wave').innerHTML=waveHeights.map(h=>`<i style="--h:${h}px"></i>`).join('');let mode='lyrics',voice='ai';function setMode(m){mode=m;document.getElementById('modeLyrics').classList.toggle('active',m==='lyrics');document.getElementById('modeIdea').classList.toggle('active',m==='idea');document.getElementById('lyricsField').style.display=m==='lyrics'?'block':'none';document.getElementById('ideaField').style.display=m==='idea'?'block':'none'}function setVoice(v){voice=v;document.getElementById('voiceAI').classList.toggle('active',v==='ai');document.getElementById('voiceMine').classList.toggle('active',v==='mine');document.getElementById('voiceUpload').style.display=v==='mine'?'block':'none'}function choosePack(n,p){document.getElementById('packSelect').value=`${n}|${p}`;document.querySelector('#creer').scrollIntoView({behavior:'smooth'});document.getElementById('generationStatus').classList.remove('show')}
+const waveHeights=[12,22,30,17,35,24,12,28,39,18,25,34,14,22,31,17,40,25,13,29,20,34,15,24,38,18,27,13,33,21,15,29,19,36,24,12,31,18,27,14,22,35,16,28,20,11];document.querySelector('.wave').innerHTML=waveHeights.map(h=>`<i style="--h:${h}px"></i>`).join('');let mode='lyrics',voice='ai';function setMode(m){mode=m;document.getElementById('modeLyrics').classList.toggle('active',m==='lyrics');document.getElementById('modeIdea').classList.toggle('active',m==='idea');document.getElementById('lyricsField').style.display=m==='lyrics'?'block':'none';document.getElementById('ideaField').style.display=m==='idea'?'block':'none'}function setVoice(v){voice=v;document.getElementById('voiceAI').classList.toggle('active',v==='ai');document.getElementById('voiceMine').classList.toggle('active',v==='mine');document.getElementById('voiceUpload').style.display=v==='mine'?'block':'none'}
+async function choosePack(n, p) {
+  const status = document.getElementById("generationStatus");
+  const packSelect = document.getElementById("packSelect");
+
+  const packIds = {
+    2: "pack-2",
+    4: "pack-4",
+    7: "pack-7",
+    14: "pack-14"
+  };
+
+  const packId = packIds[n];
+
+  if (!packId) {
+    alert("Ce pack n'est pas reconnu.");
+    return;
+  }
+
+  packSelect.value = `${n}|${p}`;
+
+  status.textContent = "Préparation du paiement…";
+  status.classList.add("show");
+
+  try {
+    const response = await fetch("/api/checkout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        packId: packId,
+        provider: "crypto"
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        status.textContent =
+          "Connecte-toi à ton compte avant d'acheter un pack.";
+        openModal();
+        return;
+      }
+
+      throw new Error(
+        data.error || "Impossible de préparer le paiement."
+      );
+    }
+
+    const invoiceUrl = data.invoiceUrl || data.checkoutUrl;
+
+    if (!invoiceUrl) {
+      throw new Error(
+        "Le serveur n'a pas fourni de lien de paiement."
+      );
+    }
+
+    window.location.href = invoiceUrl;
+
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("show");
+  }
+}
 async function generateDemo() {
   const status = document.getElementById("generationStatus");
   const result = document.getElementById("audioResult");
