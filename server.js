@@ -311,32 +311,69 @@ app.post("/api/webhooks/:provider", (req, res) => {
 // Each successful generation must atomically deduct exactly 1 credit before calling the model.
 // Half credits are supported for affiliate rewards, but a generation requires >= 1 full credit.
 
-app.post("/api/generations", async (req, res) => {
-  try {
-    const { userId, lyrics, idea, mode, style, mood, voiceMode } =
-      req.body || {};
 
-    if (!userId || !["lyrics", "idea"].includes(mode)) {
-      return res.status(400).json({
-        error: "Identifiant utilisateur ou mode invalide."
+app.post("/api/generations", async (req, res) => {
+  let reservedUserId = null;
+
+  try {
+    const {
+      lyrics,
+      idea,
+      mode,
+      style,
+      mood,
+      voiceMode
+    } = req.body || {};
+
+    // 1. Vérifier la session réelle, pas un userId envoyé par le navigateur.
+    const user = await getAuthenticatedUser(req);
+
+    if (!user) {
+      return res.status(401).json({
+        error: "Connecte-toi avant de générer une chanson."
       });
     }
 
-    if (mode === "lyrics" && !String(lyrics || "").trim()) {
+    // 2. Vérifier les données reçues.
+    if (!["lyrics", "idea"].includes(mode)) {
+      return res.status(400).json({
+        error: "Choisis les paroles ou une idée de chanson."
+      });
+    }
+
+    if (
+      mode === "lyrics" &&
+      !String(lyrics || "").trim()
+    ) {
       return res.status(400).json({
         error: "Écris les paroles de ta chanson."
       });
     }
 
-    if (mode === "idea" && !String(idea || "").trim()) {
+    if (
+      mode === "idea" &&
+      !String(idea || "").trim()
+    ) {
       return res.status(400).json({
         error: "Décris ton idée de chanson."
       });
     }
 
-    if (mode === "lyrics" && String(lyrics).length > 5000) {
+    if (
+      mode === "lyrics" &&
+      String(lyrics).length > 5000
+    ) {
       return res.status(400).json({
         error: "Les paroles ne doivent pas dépasser 5000 caractères."
+      });
+    }
+
+    if (
+      mode === "idea" &&
+      String(idea).length > 2000
+    ) {
+      return res.status(400).json({
+        error: "L'idée ne doit pas dépasser 2000 caractères."
       });
     }
 
@@ -352,20 +389,39 @@ app.post("/api/generations", async (req, res) => {
       });
     }
 
+    // 3. Réserver un crédit dans PostgreSQL.
+    // L'opération atomique empêche deux requêtes simultanées
+    // de dépenser le même crédit.
+    const reservation = await pool.query(
+      `UPDATE users
+       SET credits = credits - 1
+       WHERE id = $1 AND credits >= 1
+       RETURNING credits`,
+      [user.id]
+    );
+
+    if (reservation.rowCount === 0) {
+      return res.status(402).json({
+        error: "Tu n'as pas assez de crédits. Achète un pack pour continuer."
+      });
+    }
+
+    reservedUserId = user.id;
+
+    // 4. Préparer la demande de génération.
     const musicDetails = [
       style ? `Style musical : ${style}` : "",
       mood ? `Ambiance : ${mood}` : ""
     ].filter(Boolean).join(". ");
 
     const input = {
-      model: "mureka-9",
       enable_safety_checker: true
     };
 
     if (mode === "lyrics") {
       input.lyrics = String(lyrics).trim();
       input.prompt = musicDetails ||
-        "Create a polished song with suitable instrumentation and vocals.";
+        "Create a polished original song with suitable instrumentation and vocals.";
     } else {
       input.prompt = [
         String(idea).trim(),
@@ -374,32 +430,51 @@ app.post("/api/generations", async (req, res) => {
       ].filter(Boolean).join(". ");
     }
 
+    // 5. Appeler fal.ai.
     const result = await fal.subscribe(
       "mureka/api/generate/song",
       { input }
     );
 
-    const song = result.data;
+    const song = result?.data;
     const audioUrl = song?.audio?.url;
 
     if (!audioUrl) {
-      console.error("fal.ai returned no audio URL");
-      return res.status(502).json({
-        error: "Le fournisseur n'a pas renvoyé de fichier audio."
-      });
+      throw new Error("Le fournisseur n'a renvoyé aucune URL audio.");
     }
+
+    // Le crédit est maintenant consommé : ne pas le rembourser.
+    reservedUserId = null;
 
     return res.json({
       ok: true,
       songId: song.song_id || result.requestId,
       audioUrl,
       duration: song.duration || null,
+      creditsRemaining: Number(reservation.rows[0].credits),
       message: "Ta chanson a été générée."
     });
+
   } catch (error) {
     console.error("Music generation failed:", error.message);
+
+    // 6. Rembourser le crédit réservé si la génération échoue.
+    if (reservedUserId) {
+      try {
+        await pool.query(
+          "UPDATE users SET credits = credits + 1 WHERE id = $1",
+          [reservedUserId]
+        );
+      } catch (refundError) {
+        console.error(
+          "CRITICAL: credit refund failed:",
+          refundError.message
+        );
+      }
+    }
+
     return res.status(502).json({
-      error: "La génération a échoué. Réessaie ou vérifie les logs Render."
+      error: "La génération a échoué. Si le problème persiste, vérifie les logs Render."
     });
   }
 });
