@@ -285,27 +285,239 @@ app.post("/api/referrals/attach", (req, res) => {
   res.json({ ok: true });
 });
 
-// Payment intent creation must be implemented with the selected payment provider.
-// Never accept a client-side "payment successful" flag as proof of payment.
-app.post("/api/checkout", (req, res) => {
-  const { userId, packId, provider } = req.body || {};
-  if (!PACKS[packId]) return res.status(400).json({ error: "Unknown pack" });
-  if (!["stripe", "paypal", "crypto"].includes(provider)) return res.status(400).json({ error: "Unsupported provider" });
-  if (!process.env.PAYMENTS_ENABLED || process.env.PAYMENTS_ENABLED !== "true") {
-    return res.status(501).json({
-      error: "Payments are not configured yet.",
-      next: "Connect Stripe/PayPal/crypto provider and verify webhooks before enabling checkout.",
-      pack: PACKS[packId]
+
+app.post("/api/checkout", async (req, res) => {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return res.status(401).json({ error: "Connecte-toi avant d'acheter." });
+    }
+
+    const { packId, provider } = req.body || {};
+
+    if (provider !== "crypto") {
+      return res.status(400).json({
+        error: "Cette route accepte uniquement les paiements crypto NOWPayments."
+      });
+    }
+
+    const pack = PACKS[packId];
+    if (!pack) {
+      return res.status(400).json({ error: "Pack invalide." });
+    }
+
+    if (process.env.PAYMENTS_ENABLED !== "true") {
+      return res.status(503).json({
+        error: "Les paiements restent désactivés pendant la configuration."
+      });
+    }
+
+    if (
+      !process.env.NOWPAYMENTS_API_KEY ||
+      !process.env.NOWPAYMENTS_IPN_SECRET ||
+      !APP_ORIGIN.startsWith("https://")
+    ) {
+      return res.status(503).json({
+        error: "La configuration NOWPayments est incomplète."
+      });
+    }
+
+    const orderId = crypto.randomUUID();
+
+    await pool.query(
+      `INSERT INTO payments
+       (id, user_id, pack_id, amount_cents, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [orderId, user.id, packId, pack.priceCents]
+    );
+
+    try {
+      const response = await fetch("https://api.nowpayments.io/v1/invoice", {
+        method: "POST",
+        headers: {
+          "x-api-key": process.env.NOWPAYMENTS_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          price_amount: pack.priceCents / 100,
+          price_currency: "usd",
+          order_id: orderId,
+          order_description: `Music Sans Studio - ${pack.songs} chansons`,
+          ipn_callback_url: `${APP_ORIGIN}/api/webhooks/nowpayments`,
+          success_url: `${APP_ORIGIN}/?payment=success`,
+          cancel_url: `${APP_ORIGIN}/?payment=cancelled`
+        })
+      });
+
+      const invoice = await response.json();
+
+      if (!response.ok || !invoice.invoice_url || !invoice.id) {
+        throw new Error("NOWPayments n'a pas créé la facture.");
+      }
+
+      await pool.query(
+        `UPDATE payments
+         SET provider_payment_id = $1, invoice_url = $2
+         WHERE id = $3`,
+        [String(invoice.id), invoice.invoice_url, orderId]
+      );
+
+      return res.json({
+        ok: true,
+        orderId,
+        invoiceUrl: invoice.invoice_url,
+        checkoutUrl: invoice.invoice_url
+      });
+    } catch (error) {
+      await pool.query(
+        `UPDATE payments SET status = 'creation_failed' WHERE id = $1`,
+        [orderId]
+      );
+      throw error;
+    }
+  } catch (error) {
+    console.error("NOWPayments checkout failed:", error.message);
+    return res.status(502).json({
+      error: "Impossible de créer la facture. Réessaie plus tard."
     });
   }
-  // TODO: Create provider checkout session on server and persist provider reference.
-  res.status(501).json({ error: "Payment provider adapter must be implemented before enabling live payments." });
 });
 
-// Provider-specific webhook routes must verify each provider's signature using its official SDK.
-// This generic route is deliberately disabled rather than insecurely minting credits.
-app.post("/api/webhooks/:provider", (req, res) => {
-  res.status(501).json({ error: "Webhook verification is not configured. No credits were added." });
+
+function sortIpnObject(value) {
+  if (Array.isArray(value)) {
+    return value.map(sortIpnObject);
+  }
+
+  if (value !== null && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((sorted, key) => {
+        sorted[key] = sortIpnObject(value[key]);
+        return sorted;
+      }, {});
+  }
+
+  return value;
+}
+
+app.post("/api/webhooks/nowpayments", async (req, res) => {
+  const secret = process.env.NOWPAYMENTS_IPN_SECRET;
+  const receivedSignature = req.get("x-nowpayments-sig");
+
+  if (!secret || !receivedSignature || !req.body) {
+    return res.status(401).json({ error: "Notification non authentifiée." });
+  }
+
+  const canonicalBody = JSON.stringify(sortIpnObject(req.body));
+  const expectedSignature = crypto
+    .createHmac("sha512", secret)
+    .update(canonicalBody)
+    .digest("hex");
+
+  const received = Buffer.from(receivedSignature.toLowerCase(), "hex");
+  const expected = Buffer.from(expectedSignature, "hex");
+
+  if (
+    received.length !== expected.length ||
+    !crypto.timingSafeEqual(received, expected)
+  ) {
+    return res.status(401).json({ error: "Signature invalide." });
+  }
+
+  const { order_id, payment_status, price_amount, price_currency } = req.body;
+
+  if (!order_id || !payment_status) {
+    return res.status(400).json({ error: "Données de paiement incomplètes." });
+  }
+
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    const result = await client.query(
+      `SELECT id, user_id, pack_id, amount_cents, status, credited_at
+       FROM payments
+       WHERE id = $1
+       FOR UPDATE`,
+      [String(order_id)]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Commande inconnue." });
+    }
+
+    const payment = result.rows[0];
+
+    // Déjà crédité : répondre OK sans ajouter de crédits une seconde fois.
+    if (payment.credited_at) {
+      await client.query("COMMIT");
+      return res.status(200).json({ ok: true, alreadyProcessed: true });
+    }
+
+    // Ne créditer que les paiements réellement terminés.
+    if (payment_status !== "finished") {
+      await client.query(
+        `UPDATE payments SET status = $1 WHERE id = $2`,
+        [String(payment_status).slice(0, 50), payment.id]
+      );
+      await client.query("COMMIT");
+      return res.status(200).json({ ok: true, status: payment_status });
+    }
+
+    const pack = PACKS[payment.pack_id];
+    const paidCents = Math.round(Number(price_amount) * 100);
+
+    if (
+      !pack ||
+      !Number.isFinite(paidCents) ||
+      paidCents !== Number(payment.amount_cents) ||
+      String(price_currency).toLowerCase() !== "usd"
+    ) {
+      await client.query("ROLLBACK");
+      console.error("NOWPayments amount or currency mismatch:", order_id);
+      return res.status(400).json({ error: "Montant ou devise incorrect." });
+    }
+
+    const creditResult = await client.query(
+      `UPDATE users
+       SET credits = credits + $1
+       WHERE id = $2
+       RETURNING credits`,
+      [pack.songs, payment.user_id]
+    );
+
+    if (creditResult.rowCount !== 1) {
+      throw new Error("Utilisateur du paiement introuvable.");
+    }
+
+    await client.query(
+      `UPDATE payments
+       SET status = 'finished', credited_at = NOW()
+       WHERE id = $1`,
+      [payment.id]
+    );
+
+    await client.query("COMMIT");
+
+    console.log("NOWPayments credits added:", payment.id);
+
+    return res.status(200).json({ ok: true });
+  } catch (error) {
+    if (client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+    }
+
+    console.error("NOWPayments webhook failed:", error.message);
+    return res.status(500).json({ error: "Erreur de traitement du paiement." });
+  } finally {
+    client?.release();
+  }
 });
 
 // Each successful generation must atomically deduct exactly 1 credit before calling the model.
