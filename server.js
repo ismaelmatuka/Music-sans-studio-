@@ -13,10 +13,15 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import crypto from "node:crypto";
 import pg from "pg";
+import { fal } from "@fal-ai/client";
 const app = express();
 const { Pool } = pg;
 const scryptAsync = promisify(crypto.scrypt);
-
+if (process.env.FAL_KEY) {
+  fal.config({
+    credentials: process.env.FAL_KEY
+  });
+}
 app.set("trust proxy", 1);
 import path from "node:path";
 import { fileURLToPath } from "node:url";
