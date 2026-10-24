@@ -631,22 +631,23 @@ app.post("/api/generations", async (req, res) => {
       mood ? `Ambiance : ${mood}` : ""
     ].filter(Boolean).join(". ");
 
-    const input = {
+  
+const input = {
   model: "mureka-9",
   enable_safety_checker: true
 };
 
-    if (mode === "lyrics") {
-      input.lyrics = String(lyrics).trim();
-      input.prompt = musicDetails ||
-        "Create a polished original song with suitable instrumentation and vocals.";
-    } else {
-      input.prompt = [
-        String(idea).trim(),
-        musicDetails,
-        "Create a complete original song with vocals."
-      ].filter(Boolean).join(". ");
-    }
+if (mode === "lyrics") {
+  input.lyrics = String(lyrics).trim();
+  input.prompt = musicDetails ||
+    "Create a polished original song with suitable instrumentation and vocals.";
+} else {
+  input.prompt = [
+    String(idea).trim(),
+    musicDetails,
+    "Create a complete original song with vocals."
+  ].filter(Boolean).join(". ");
+}
 
     // 5. Appeler fal.ai.
     const result = await fal.subscribe(
