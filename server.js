@@ -632,8 +632,9 @@ app.post("/api/generations", async (req, res) => {
     ].filter(Boolean).join(". ");
 
     const input = {
-      enable_safety_checker: true
-    };
+  model: "mureka-9",
+  enable_safety_checker: true
+};
 
     if (mode === "lyrics") {
       input.lyrics = String(lyrics).trim();
