@@ -6,7 +6,7 @@
  * This starter intentionally does NOT pretend payments or music generation are live.
  * Configure a payment provider and fal.ai adapter before production.
  */
-
+import multer from "multer";
 import { promisify } from "node:util";
 import express from "express";
 import helmet from "helmet";
@@ -25,7 +25,29 @@ if (process.env.FAL_KEY) {
 app.set("trust proxy", 1);
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+const voiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: (_req, file, callback) => {
+    const allowed = [
+      "audio/mpeg",
+      "audio/mp4",
+      "audio/x-m4a",
+      "audio/mp3"
+    ];
 
+    if (allowed.includes(file.mimetype)) {
+      return callback(null, true);
+    }
+
+    return callback(
+      new Error("Utilise un fichier audio MP3 ou M4A.")
+    );
+  }
+});
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(express.static("public"));
