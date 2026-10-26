@@ -98,6 +98,7 @@ async function choosePack(n, p) {
     status.classList.add("show");
   }
 }
+
 async function generateDemo() {
   const status = document.getElementById("generationStatus");
   const result = document.getElementById("audioResult");
@@ -106,6 +107,7 @@ async function generateDemo() {
 
   const lyrics = document.getElementById("lyrics").value.trim();
   const idea = document.getElementById("idea").value.trim();
+  const voiceFile = document.getElementById("voiceFile");
 
   if (mode === "lyrics" && !lyrics) {
     status.textContent = "Ajoute tes paroles avant de continuer.";
@@ -114,63 +116,99 @@ async function generateDemo() {
   }
 
   if (mode === "idea" && !idea) {
-    status.textContent = "Décris ton idée musicale avant de continuer.";
+    status.textContent = "Décris ton idée de chanson.";
     status.classList.add("show");
     return;
   }
 
-  if (voice !== "ai") {
-    status.textContent =
-      "L'import d'une voix personnelle n'est pas encore pris en charge.";
+  if (voice === "mine" && !voiceFile.files.length) {
+    status.textContent = "Choisis un fichier audio de ta voix.";
     status.classList.add("show");
     return;
   }
-
-  status.textContent = "Envoi au studio musical IA… La génération peut prendre un moment.";
-  status.classList.add("show");
-  result.style.display = "none";
 
   const button = document.querySelector(
     '#creer button[onclick="generateDemo()"]'
   );
+
   if (button) button.disabled = true;
+  if (result) result.style.display = "none";
+
+  status.textContent = "Préparation de ta chanson…";
+  status.classList.add("show");
 
   try {
+    // Étape 1 : enregistrer la voix personnelle si nécessaire.
+    if (voice === "mine") {
+      status.textContent =
+        "Envoi de ta voix au moteur vocal…";
+
+      const formData = new FormData();
+      formData.append("file", voiceFile.files[0]);
+
+      const cloneResponse = await fetch("/api/voice/clone", {
+        method: "POST",
+        credentials: "same-origin",
+        body: formData
+      });
+
+      const cloneData = await cloneResponse.json();
+
+      if (!cloneResponse.ok) {
+        throw new Error(
+          cloneData.error || "Impossible d'enregistrer ta voix."
+        );
+      }
+    }
+
+    // Étape 2 : générer la chanson.
+    status.textContent =
+      "Génération musicale en cours. Cela peut prendre un moment…";
+
     const response = await fetch("/api/generations", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       credentials: "same-origin",
-      
-     body: JSON.stringify({
+      body: JSON.stringify({
         mode,
         lyrics,
         idea,
         style: document.getElementById("style").value,
         mood: document.getElementById("mood").value,
-        voiceMode: "ai"
+        voiceMode: voice === "mine" ? "own" : "ai"
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "La génération a échoué.");
+      throw new Error(
+        data.error || "La génération de la chanson a échoué."
+      );
     }
 
     if (!data.audioUrl) {
-      throw new Error("Le serveur n'a pas renvoyé de fichier audio.");
+      throw new Error(
+        "Le serveur n'a pas renvoyé de fichier audio."
+      );
     }
 
     player.src = data.audioUrl;
     download.href = data.audioUrl;
     download.download = "music-sans-studio.mp3";
-    result.style.display = "block";
-    status.textContent = "Chanson générée ! Tu peux l'écouter ci-dessous.";
+
+    if (result) result.style.display = "block";
+
+    status.textContent =
+      "Chanson générée ! Tu peux l'écouter ci-dessous.";
   } catch (error) {
     status.textContent = error.message;
   } finally {
     if (button) button.disabled = false;
   }
+}
 }function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}
 async function loginDemo() {
   await submitAuth("/api/auth/login");
