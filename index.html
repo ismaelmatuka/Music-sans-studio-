@@ -209,7 +209,7 @@ async function generateDemo() {
     if (button) button.disabled = false;
   }
 }
-}function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}
+function openModal(){document.getElementById('loginModal').classList.add('open')}function closeModal(){document.getElementById('loginModal').classList.remove('open')}
 async function loginDemo() {
   await submitAuth("/api/auth/login");
 }
