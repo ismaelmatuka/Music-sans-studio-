@@ -136,7 +136,7 @@ async function getAuthenticatedUser(req) {
     .update(token).digest("hex");
 
   const result = await pool.query(
-    `SELECT u.id, u.email, u.credits, u.referral_code
+    `SELECT u.id, u.email, u.credits, u.referral_code, u.vocal_id
      FROM user_sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > NOW()`,
