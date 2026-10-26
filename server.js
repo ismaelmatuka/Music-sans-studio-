@@ -146,6 +146,93 @@ async function getAuthenticatedUser(req) {
   return result.rows[0] || null;
 }
 
+app.post(
+  "/api/voice/clone",
+  voiceUpload.single("file"),
+  async (req, res) => {
+    try {
+      const user = await getAuthenticatedUser(req);
+
+      if (!user) {
+        return res.status(401).json({
+          error: "Connecte-toi avant d'enregistrer ta voix."
+        });
+      }
+
+      if (!process.env.MUREKA_API_KEY) {
+        return res.status(503).json({
+          error: "La clé Mureka n'est pas configurée."
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: "Choisis un fichier audio MP3 ou M4A."
+        });
+      }
+
+      const form = new FormData();
+
+      form.append(
+        "file",
+        new Blob([req.file.buffer], {
+          type: req.file.mimetype
+        }),
+        req.file.originalname
+      );
+
+      const response = await fetch(
+        "https://api.mureka.ai/v1/song/vocal-clone",
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${process.env.MUREKA_API_KEY}`
+          },
+          body: form
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Mureka vocal clone error:", data);
+
+        return res.status(502).json({
+          error: "Mureka n'a pas pu enregistrer cette voix."
+        });
+      }
+
+      const vocalId = data.vocal_id || data.id;
+
+      if (!vocalId) {
+        console.error("Mureka response missing vocal ID:", data);
+
+        return res.status(502).json({
+          error: "Mureka n'a pas renvoyé d'identifiant vocal."
+        });
+      }
+
+      await pool.query(
+        `UPDATE users
+         SET vocal_id = $1
+         WHERE id = $2`,
+        [vocalId, user.id]
+      );
+
+      return res.json({
+        ok: true,
+        message: "Ta voix a été enregistrée.",
+      });
+    } catch (error) {
+      console.error("Voice clone failed:", error.message);
+
+      return res.status(500).json({
+        error: "Impossible d'enregistrer ta voix pour le moment."
+      });
+    }
+  }
+);
 app.post("/api/auth/register", async (req, res) => {
   try {
     const email = String(req.body?.email || "").trim().toLowerCase();
