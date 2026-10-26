@@ -25,6 +25,7 @@ if (process.env.FAL_KEY) {
 app.set("trust proxy", 1);
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 const voiceUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -32,14 +33,18 @@ const voiceUpload = multer({
     files: 1
   },
   fileFilter: (_req, file, callback) => {
-    const allowed = [
+    const allowedMimes = [
       "audio/mpeg",
       "audio/mp4",
       "audio/x-m4a",
       "audio/mp3"
     ];
 
-    if (allowed.includes(file.mimetype)) {
+    const filename = (file.originalname || "").toLowerCase();
+    const hasAllowedExtension = /\.(mp3|m4a)$/.test(filename);
+    const hasAllowedMime = allowedMimes.includes(file.mimetype);
+
+    if (hasAllowedMime || hasAllowedExtension) {
       return callback(null, true);
     }
 
