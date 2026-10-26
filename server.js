@@ -703,11 +703,17 @@ app.post("/api/generations", async (req, res) => {
       });
     }
 
-    if (voiceMode === "own") {
-      return res.status(400).json({
-        error: "La voix personnelle n'est pas encore prise en charge."
-      });
-    }
+    if (voiceMode !== "ai" && voiceMode !== "own") {
+  return res.status(400).json({
+    error: "Choisis une voix IA ou ta voix personnelle."
+  });
+}
+
+if (voiceMode === "own" && !user.vocal_id) {
+  return res.status(400).json({
+    error: "Enregistre d'abord ta voix avant de générer une chanson."
+  });
+}
 
     if (!process.env.FAL_KEY) {
       return res.status(503).json({
@@ -745,6 +751,10 @@ const input = {
   model: "mureka-9",
   enable_safety_checker: true
 };
+
+if (voiceMode === "own") {
+  input.vocal_id = user.vocal_id;
+}
 
 if (mode === "lyrics") {
   input.lyrics = String(lyrics).trim();
