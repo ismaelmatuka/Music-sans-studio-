@@ -756,6 +756,10 @@ await pool.query(`
 `);
 
 await pool.query(`
+  ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS vocal_id TEXT
+`);
+await pool.query(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
   ON users (LOWER(email))
   WHERE email IS NOT NULL
